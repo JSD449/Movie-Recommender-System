@@ -91,13 +91,14 @@ def explain_recommendation(movie, history_ids):
 
     return reasons
 
-def render_movie_grid(movie_list, show_watched_badge=False, show_why=False):
+def render_movie_grid(movie_list, show_watched_badge=False, show_why=False, key_prefix="grid"):
     cols = st.columns(4)
     for idx, movie in enumerate(movie_list):
         with cols[idx % 4]:
             with st.container(border=True):
                 st.markdown(f"### {movie['title']}")
-                if show_watched_badge and movie["id"] in st.session_state.watch_history:
+                is_watched = movie["id"] in st.session_state.watch_history
+                if show_watched_badge and is_watched:
                     st.caption("Watched")
                 st.write(f"**Genres:** {', '.join(movie['genres'])}")
                 st.write(f"**Year:** {movie['year']}")
@@ -105,6 +106,14 @@ def render_movie_grid(movie_list, show_watched_badge=False, show_why=False):
                     st.caption(f"🔗 {movie['series']} ({movie['series_role']})")
                 else:
                     st.caption("Standalone film")
+
+                # Simulated Watch button
+                if is_watched:
+                    st.button("Watched ✓", key=f"{key_prefix}_watch_{movie['id']}", disabled=True, use_container_width=True)
+                else:
+                    if st.button("▶ Watch Movie", key=f"{key_prefix}_watch_{movie['id']}", use_container_width=True):
+                        st.session_state.watch_history.append(movie["id"])
+                        st.rerun()
 
                 if show_why:
                     with st.expander("Why this?"):
@@ -135,13 +144,13 @@ with tab_recs:
     st.subheader("Recommended for You")
     recommendations = get_recommendations(st.session_state.watch_history)
     if recommendations:
-        render_movie_grid(recommendations, show_why=True)
+        render_movie_grid(recommendations, show_why=True, key_prefix="recs")
     else:
-        st.info("No personalized recommendations yet. Watch a movie from the Full Catalogue to build your taste profile.")
+        st.info("No personalized recommendations at the moment.")
 
 with tab_catalogue:
     st.subheader("Full Movie Catalogue")
-    render_movie_grid(MOVIES, show_watched_badge=True)
+    render_movie_grid(MOVIES, show_watched_badge=True, key_prefix="cat")
 
 with tab_history:
     st.subheader("Your Watch History")
