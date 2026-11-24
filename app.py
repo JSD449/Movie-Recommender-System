@@ -59,12 +59,39 @@ def get_recommendations(history_ids, top_n=8):
         genre_score = sum(genre_counts[genre] for genre in movie["genres"])
         return series_score + genre_score
 
-    # changed so it only keeps in movies with at least one genre or series match  
+    # keeps in movies with at least one genre or series match  
     scored = [movie for movie in candidates if score_movie(movie) > 0]
     ranked = sorted(scored, key=score_movie, reverse=True)
     return ranked[:top_n]
 
-def render_movie_grid(movie_list, show_watched_badge=False):
+def explain_recommendation(movie, history_ids):
+    """Build plain-language reasons explaining why a movie was recommended."""
+    reasons = []
+    watched_movies = [get_movie_by_id(movie_id) for movie_id in history_ids]
+    watched_movies = [m for m in watched_movies if m]
+
+    # 1. Check for a series/universe connection
+    if movie["series"]:
+        same_series = [m["title"] for m in watched_movies if m["series"] == movie["series"]]
+        if same_series:
+            reasons.append(
+                f"**Franchise match:** This is a *{movie['series_role']}* in the **{movie['series']}** "
+                f"series, and you watched **{', '.join(same_series)}**."
+            )
+
+    # 2. Check for matching genres and trace them back to watched movies
+    genre_matches = []
+    for genre in movie["genres"]:
+        source_movies = [m["title"] for m in watched_movies if genre in m["genres"]]
+        if source_movies:
+            genre_matches.append(f"**{genre}** (from {', '.join(source_movies)})")
+
+    if genre_matches:
+        reasons.append(f"**Genre match:** Matches your interest in {', '.join(genre_matches)}.")
+
+    return reasons
+
+def render_movie_grid(movie_list, show_watched_badge=False, show_why=False):
     cols = st.columns(4)
     for idx, movie in enumerate(movie_list):
         with cols[idx % 4]:
@@ -78,6 +105,12 @@ def render_movie_grid(movie_list, show_watched_badge=False):
                     st.caption(f"🔗 {movie['series']} ({movie['series_role']})")
                 else:
                     st.caption("Standalone film")
+
+                if show_why:
+                    with st.expander("Why this?"):
+                        reasons = explain_recommendation(movie, st.session_state.watch_history)
+                        for reason in reasons:
+                            st.markdown(f"- {reason}")
 
 # Sidebar: Inspect Simulated Taste Profile
 genre_counts, watched_series = build_taste_profile(st.session_state.watch_history)
@@ -102,7 +135,7 @@ with tab_recs:
     st.subheader("Recommended for You")
     recommendations = get_recommendations(st.session_state.watch_history)
     if recommendations:
-        render_movie_grid(recommendations)
+        render_movie_grid(recommendations, show_why=True)
     else:
         st.info("No personalized recommendations yet. Watch a movie from the Full Catalogue to build your taste profile.")
 
