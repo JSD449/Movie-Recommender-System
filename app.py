@@ -1,4 +1,5 @@
 import streamlit as st
+from collections import Counter
 
 # Page Setup
 st.set_page_config(page_title="Movie Recommender Prototype", layout="wide")
@@ -27,18 +28,79 @@ MOVIES = [
     {"id": 20, "title": "Stronger Together", "genres": ["Superhero", "Romance"], "year": 2018, "series": None, "series_role": None},
 ]
 
+# Initialize Session State (Starting Watch History)
+if "watch_history" not in st.session_state:
+    # Outer Orbit, Vanguard Rising, Play Time, Departure
+    st.session_state.watch_history = [1, 4, 8, 11]
+
+# Helper Functions (Simulated Taste Profile & Recommendation Engine)
+def get_movie_by_id(movie_id):
+    return next((movie for movie in MOVIES if movie["id"] == movie_id), None)
+
+def build_taste_profile(history_ids):
+    genre_counts = Counter()
+    watched_series = set()
+    for movie_id in history_ids:
+        movie = get_movie_by_id(movie_id)
+        if movie:
+            genre_counts.update(movie["genres"])
+            if movie["series"]:
+                watched_series.add(movie["series"])
+    return genre_counts, watched_series
+
+def get_recommendations(history_ids, top_n=8):
+    genre_counts, watched_series = build_taste_profile(history_ids)
+    candidates = [movie for movie in MOVIES if movie["id"] not in history_ids]
+
+    def score_movie(movie):
+        # Boost movies from a series/universe the user has already watched
+        series_score = 3 if (movie["series"] and movie["series"] in watched_series) else 0
+        # Add points for each matching genre in the taste profile
+        genre_score = sum(genre_counts[genre] for genre in movie["genres"])
+        return series_score + genre_score
+
+    ranked = sorted(candidates, key=score_movie, reverse=True)
+    return ranked[:top_n]
+
+def render_movie_grid(movie_list, show_watched_badge=False):
+    cols = st.columns(4)
+    for idx, movie in enumerate(movie_list):
+        with cols[idx % 4]:
+            with st.container(border=True):
+                st.markdown(f"### {movie['title']}")
+                if show_watched_badge and movie["id"] in st.session_state.watch_history:
+                    st.caption("Watched")
+                st.write(f"**Genres:** {', '.join(movie['genres'])}")
+                st.write(f"**Year:** {movie['year']}")
+                if movie["series"]:
+                    st.caption(f"🔗 {movie['series']} ({movie['series_role']})")
+                else:
+                    st.caption("Standalone film")
+
+# Sidebar: Inspect Simulated Taste Profile
+genre_counts, watched_series = build_taste_profile(st.session_state.watch_history)
+with st.sidebar:
+    st.header("Simulated Taste Profile")
+    st.caption("Generated automatically from your watch history.")
+    if genre_counts:
+        st.write("**Top Genres:**")
+        for genre, count in genre_counts.most_common(5):
+            st.write(f"- {genre} ({count})")
+    if watched_series:
+        st.write("**Watched Franchises:**")
+        for s in sorted(watched_series):
+            st.write(f"- {s}")
+
 # Main UI
 st.title("🎬 Movie Recommender Prototype")
-st.subheader("Movie Catalogue")
 
-cols = st.columns(4)
-for idx, movie in enumerate(MOVIES):
-    with cols[idx % 4]:
-        with st.container(border=True):
-            st.markdown(f"### {movie['title']}")
-            st.write(f"**Genres:** {', '.join(movie['genres'])}")
-            st.write(f"**Year:** {movie['year']}")
-            if movie["series"]:
-                st.caption(f"🔗 {movie['series']} ({movie['series_role']})")
-            else:
-                st.caption("Standalone film")
+tab_recs, tab_catalogue = st.tabs(["Recommended for You", "Full Catalogue"])
+
+with tab_recs:
+    st.subheader("Recommended for You")
+    recommendations = get_recommendations(st.session_state.watch_history)
+    render_movie_grid(recommendations)
+
+with tab_catalogue:
+    st.subheader("Full Movie Catalogue")
+    render_movie_grid(MOVIES, show_watched_badge=True)
