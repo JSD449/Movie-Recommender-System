@@ -59,7 +59,9 @@ def get_recommendations(history_ids, top_n=8):
         genre_score = sum(genre_counts[genre] for genre in movie["genres"])
         return series_score + genre_score
 
-    ranked = sorted(candidates, key=score_movie, reverse=True)
+    # changed so it only keeps in movies with at least one genre or series match  
+    scored = [movie for movie in candidates if score_movie(movie) > 0]
+    ranked = sorted(scored, key=score_movie, reverse=True)
     return ranked[:top_n]
 
 def render_movie_grid(movie_list, show_watched_badge=False):
@@ -84,7 +86,7 @@ with st.sidebar:
     st.caption("Generated automatically from your watch history.")
     if genre_counts:
         st.write("**Top Genres:**")
-        for genre, count in genre_counts.most_common(5):
+        for genre, count in genre_counts.most_common():
             st.write(f"- {genre} ({count})")
     if watched_series:
         st.write("**Watched Franchises:**")
@@ -99,7 +101,10 @@ tab_recs, tab_catalogue = st.tabs(["Recommended for You", "Full Catalogue"])
 with tab_recs:
     st.subheader("Recommended for You")
     recommendations = get_recommendations(st.session_state.watch_history)
-    render_movie_grid(recommendations)
+    if recommendations:
+        render_movie_grid(recommendations)
+    else:
+        st.info("No personalized recommendations yet. Watch a movie from the Full Catalogue to build your taste profile.")
 
 with tab_catalogue:
     st.subheader("Full Movie Catalogue")
