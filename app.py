@@ -129,7 +129,7 @@ with st.sidebar:
 # Main UI
 st.title("🎬 Movie Recommender Prototype")
 
-tab_recs, tab_catalogue = st.tabs(["Recommended for You", "Full Catalogue"])
+tab_recs, tab_catalogue, tab_history = st.tabs(["Recommended for You", "Full Catalogue", "Watch History"])
 
 with tab_recs:
     st.subheader("Recommended for You")
@@ -142,3 +142,25 @@ with tab_recs:
 with tab_catalogue:
     st.subheader("Full Movie Catalogue")
     render_movie_grid(MOVIES, show_watched_badge=True)
+
+with tab_history:
+    st.subheader("Your Watch History")
+    st.caption("Remove any movie below to immediately update your taste profile and recommendations.")
+
+    if st.session_state.watch_history:
+        for movie_id in st.session_state.watch_history:
+            movie = get_movie_by_id(movie_id)
+            if movie:
+                with st.container(border=True):
+                    col_info, col_action = st.columns([4, 1])
+                    with col_info:
+                        st.markdown(f"### {movie['title']}")
+                        st.write(f"**Genres:** {', '.join(movie['genres'])} | **Year:** {movie['year']}")
+                        if movie["series"]:
+                            st.caption(f"🔗 {movie['series']} ({movie['series_role']})")
+                    with col_action:
+                        if st.button("Remove from History", key=f"remove_{movie['id']}", use_container_width=True):
+                            st.session_state.watch_history.remove(movie["id"])
+                            st.rerun()
+    else:
+        st.info("Your watch history is empty.")
