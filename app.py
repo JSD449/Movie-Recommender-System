@@ -39,9 +39,15 @@ if "last_removed" not in st.session_state:
 if "history_paused" not in st.session_state:
     st.session_state.history_paused = False
 
+if "excluded_from_recs" not in st.session_state:
+    st.session_state.excluded_from_recs = set()
+
 # Helper Functions (Simulated Taste Profile & Recommendation Engine)
 def get_movie_by_id(movie_id):
     return next((movie for movie in MOVIES if movie["id"] == movie_id), None)
+
+def get_active_history():
+    return [mid for mid in st.session_state.watch_history if mid not in st.session_state.excluded_from_recs]
 
 def build_taste_profile(history_ids):
     genre_counts = Counter()
@@ -55,7 +61,8 @@ def build_taste_profile(history_ids):
     return genre_counts, watched_series
 
 def get_recommendations(history_ids, top_n=8):
-    genre_counts, watched_series = build_taste_profile(history_ids)
+    active_ids = [mid for mid in history_ids if mid not in st.session_state.excluded_from_recs]
+    genre_counts, watched_series = build_taste_profile(active_ids)
     candidates = [movie for movie in MOVIES if movie["id"] not in history_ids]
 
     def score_movie(movie):
@@ -126,12 +133,12 @@ def render_movie_grid(movie_list, show_watched_badge=False, show_why=False, key_
 
                 if show_why:
                     with st.expander("Why this?"):
-                        reasons = explain_recommendation(movie, st.session_state.watch_history)
+                        reasons = explain_recommendation(movie, get_active_history())
                         for reason in reasons:
                             st.markdown(f"- {reason}")
 
 # Sidebar: Inspect Simulated Taste Profile
-genre_counts, watched_series = build_taste_profile(st.session_state.watch_history)
+genre_counts, watched_series = build_taste_profile(get_active_history())
 with st.sidebar:
     st.header("Privacy Controls")
     st.session_state.history_paused = st.toggle(
@@ -202,12 +209,28 @@ with tab_history:
                     col_info, col_action = st.columns([4, 1])
                     with col_info:
                         st.markdown(f"### {movie['title']}")
+                        if movie["id"] in st.session_state.excluded_from_recs:
+                            st.caption("🔇 Excluded from recommendations")
                         st.write(f"**Genres:** {', '.join(movie['genres'])} | **Year:** {movie['year']}")
                         if movie["series"]:
                             st.caption(f"🔗 {movie['series']} ({movie['series_role']})")
                     with col_action:
+                        is_included = movie["id"] not in st.session_state.excluded_from_recs
+                        use_for_recs = st.toggle(
+                            "Use for recommendations",
+                            value=is_included,
+                            key=f"include_{movie['id']}"
+                        )
+                        if use_for_recs and not is_included:
+                            st.session_state.excluded_from_recs.discard(movie["id"])
+                            st.rerun()
+                        elif not use_for_recs and is_included:
+                            st.session_state.excluded_from_recs.add(movie["id"])
+                            st.rerun()
+
                         if st.button("Remove from History", key=f"remove_{movie['id']}", use_container_width=True):
                             st.session_state.watch_history.remove(movie["id"])
+                            st.session_state.excluded_from_recs.discard(movie["id"])
                             st.session_state.last_removed = {"id": movie["id"], "title": movie["title"]}
                             st.rerun()
     else:
