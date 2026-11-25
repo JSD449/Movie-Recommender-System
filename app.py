@@ -31,10 +31,13 @@ MOVIES = [
 # Initialize Session State (Starting Watch History)
 if "watch_history" not in st.session_state:
     # Outer Orbit, Vanguard Rising, Play Time, Departure
-    st.session_state.watch_history = [1, 4, 8, 11]
+    st.session_state.watch_history = [1, 4, 8]
 
 if "last_removed" not in st.session_state:
     st.session_state.last_removed = None
+
+if "history_paused" not in st.session_state:
+    st.session_state.history_paused = False
 
 # Helper Functions (Simulated Taste Profile & Recommendation Engine)
 def get_movie_by_id(movie_id):
@@ -115,8 +118,11 @@ def render_movie_grid(movie_list, show_watched_badge=False, show_why=False, key_
                     st.button("Watched ✓", key=f"{key_prefix}_watch_{movie['id']}", disabled=True, use_container_width=True)
                 else:
                     if st.button("▶ Watch Movie", key=f"{key_prefix}_watch_{movie['id']}", use_container_width=True):
-                        st.session_state.watch_history.append(movie["id"])
-                        st.rerun()
+                        if st.session_state.history_paused:
+                            st.toast(f"Played '{movie['title']}' - not saved (Watch History is paused).")
+                        else:
+                            st.session_state.watch_history.append(movie["id"])
+                            st.rerun()
 
                 if show_why:
                     with st.expander("Why this?"):
@@ -127,6 +133,19 @@ def render_movie_grid(movie_list, show_watched_badge=False, show_why=False, key_
 # Sidebar: Inspect Simulated Taste Profile
 genre_counts, watched_series = build_taste_profile(st.session_state.watch_history)
 with st.sidebar:
+    st.header("Privacy Controls")
+    st.session_state.history_paused = st.toggle(
+        "Pause Watch History",
+        value=st.session_state.history_paused,
+        help="When paused, movies you watch won't be saved or used for recommendations."
+    )
+    if st.session_state.history_paused:
+        st.caption("⏸️ Tracking is currently **paused**.")
+    else:
+        st.caption("▶️ Tracking is currently **active**.")
+
+    st.divider()
+
     st.header("Simulated Taste Profile")
     st.caption("Generated automatically from your watch history.")
     if genre_counts:
@@ -140,6 +159,9 @@ with st.sidebar:
 
 # Main UI
 st.title("🎬 Movie Recommender Prototype")
+
+if st.session_state.history_paused:
+    st.info("⏸️ **Watch History is paused.** Movies you watch will not be saved to your history or affect your recommendations.")
 
 tab_recs, tab_catalogue, tab_history = st.tabs(["Recommended for You", "Full Catalogue", "Watch History"])
 
