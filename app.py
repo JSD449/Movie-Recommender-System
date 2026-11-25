@@ -33,6 +33,9 @@ if "watch_history" not in st.session_state:
     # Outer Orbit, Vanguard Rising, Play Time, Departure
     st.session_state.watch_history = [1, 4, 8, 11]
 
+if "last_removed" not in st.session_state:
+    st.session_state.last_removed = None
+
 # Helper Functions (Simulated Taste Profile & Recommendation Engine)
 def get_movie_by_id(movie_id):
     return next((movie for movie in MOVIES if movie["id"] == movie_id), None)
@@ -156,6 +159,19 @@ with tab_history:
     st.subheader("Your Watch History")
     st.caption("Remove any movie below to immediately update your taste profile and recommendations.")
 
+    # Stage 5: Reversibility (Undo banner)
+    if st.session_state.last_removed:
+        removed_movie = st.session_state.last_removed
+        col_msg, col_undo = st.columns([4, 1])
+        with col_msg:
+            st.warning(f"Removed **{removed_movie['title']}** from your watch history.")
+        with col_undo:
+            if st.button("↩ Undo", key="undo_remove", use_container_width=True):
+                if removed_movie["id"] not in st.session_state.watch_history:
+                    st.session_state.watch_history.append(removed_movie["id"])
+                st.session_state.last_removed = None
+                st.rerun()
+
     if st.session_state.watch_history:
         for movie_id in st.session_state.watch_history:
             movie = get_movie_by_id(movie_id)
@@ -170,6 +186,7 @@ with tab_history:
                     with col_action:
                         if st.button("Remove from History", key=f"remove_{movie['id']}", use_container_width=True):
                             st.session_state.watch_history.remove(movie["id"])
+                            st.session_state.last_removed = {"id": movie["id"], "title": movie["title"]}
                             st.rerun()
     else:
         st.info("Your watch history is empty.")
