@@ -30,7 +30,7 @@ MOVIES = [
 
 # Initialize Session State (Starting Watch History)
 if "watch_history" not in st.session_state:
-    # Outer Orbit, Vanguard Rising, Play Time, Departure
+    # Outer Orbit, Vanguard Rising, Play Time
     st.session_state.watch_history = [1, 4, 8]
 
 if "last_removed" not in st.session_state:
